@@ -46,8 +46,8 @@ const INITIAL_SPOTS = [
 ];
 
 const USERS = [
-  { id:"u1", role:"admin",  name:"管理者",    nickname:"管理者" },
-  { id:"u2", role:"member", name:"ユーザー",  nickname:"ユーザー" },
+  { id:"u1", role:"admin",  name:"管理者",    nickname:"管理者", email:"hiro.hboy@gmail.com" },
+  { id:"u2", role:"member", name:"ユーザー",  nickname:"ユーザー", email:"" },
 ];
 
 // 学校コード定義
@@ -427,6 +427,24 @@ export default function MimamoriApp() {
     return () => unsub();
   }, []);
 
+  // メール通知送信（共通API）
+  const sendEmailNotification = async ({ type, title, body, emails, senderName }) => {
+    try {
+      const res = await fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, title, body, emails, senderName }),
+      });
+      const data = await res.json();
+      if (!res.ok) console.error("メール通知エラー:", data);
+      else console.log("メール通知送信完了:", data);
+      return data;
+    } catch (e) {
+      console.error("メール通知送信失敗:", e);
+      return null;
+    }
+  };
+
   const handleRegister = async (spot, date) => {
     const d = date || selectedDate;
     if (specialDays.some(s => s.date === d && s.type === "holiday" && (s.school === "all" || s.school === spot.school))) {
@@ -453,6 +471,13 @@ export default function MimamoriApp() {
       date, type, school: school || "all", label: label || "",
       createdAt: new Date().toISOString(),
     });
+    // メール通知（全ユーザー）
+    const typeLabel = type === "holiday" ? "休校日" : "見守り強化デー";
+    const schoolLabel = SCHOOLS.find(s => s.code === (school || "all"))?.label || "";
+    const allEmails = USERS.map(u => u.email).filter(Boolean);
+    if (allEmails.length > 0) {
+      sendEmailNotification({ type: "mimamori", title: `${typeLabel}の設定：${date}`, body: `${schoolLabel}の${date}が「${typeLabel}」に設定されました。${label ? `\n備考: ${label}` : ""}\n\n見守りナビで確認してください。`, emails: allEmails, senderName: "見守りナビ" });
+    }
   };
 
   const handleRemoveSpecialDay = async (id) => {
