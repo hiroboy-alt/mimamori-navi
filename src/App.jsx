@@ -506,7 +506,8 @@ export default function MimamoriApp() {
           <span style={{ fontSize:19 }}>👁️</span>
           <span style={{ fontWeight:900,fontSize:14,color:"white",letterSpacing:1,flex:1 }}>見守りナビ</span>
           <span style={{ fontSize:10,color:"rgba(255,255,255,0.6)",background:"rgba(255,255,255,0.1)",padding:"3px 8px",borderRadius:7 }}>{currentUser.role==="admin"?"👑":"👤"} {currentUser.nickname}</span>
-          <button onClick={()=>setCurrentUser(null)} style={{ padding:"5px 10px",borderRadius:7,border:"none",background:"linear-gradient(135deg,#1e1b4b,#312e81)",color:"white",cursor:"pointer",fontSize:10,fontWeight:800,letterSpacing:1 }}>🏠 ホーム</button>
+          <button onClick={()=>window.location.href="https://yagiyama-net.vercel.app"} style={{ padding:"5px 10px",borderRadius:7,border:"none",background:"linear-gradient(135deg,#0284c7,#0369a1)",color:"white",cursor:"pointer",fontSize:10,fontWeight:800,letterSpacing:1 }}>🏠 八木中ネット</button>
+          <button onClick={()=>setCurrentUser(null)} style={{ padding:"5px 10px",borderRadius:7,border:"none",background:"linear-gradient(135deg,#1e1b4b,#312e81)",color:"white",cursor:"pointer",fontSize:10,fontWeight:800,letterSpacing:1 }}>↩ ログアウト</button>
         </div>
         <div style={{ display:"flex",gap:1,padding:"4px 8px 0" }}>
           {tabs.map(t=>(
