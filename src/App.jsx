@@ -89,7 +89,7 @@ function formatDateJP(dateStr) {
   return `${d.getMonth()+1}月${d.getDate()}日（${"日月火水木金土"[d.getDay()]}）`;
 }
 function getDateRange() {
-  return Array.from({length:92},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+i); return d.toISOString().split("T")[0]; });
+  return Array.from({length:365},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+i); return d.toISOString().split("T")[0]; });
 }
 function createSpotIcon(hasReg) {
   const color = hasReg?"#2563eb":"#dc2626";
@@ -190,7 +190,7 @@ function CalendarView({ spots, registrations, currentUser, onRegister, onCancel,
   const [selectedSpot, setSelectedSpot] = useState(spots[0]);
   const [ym, setYm] = useState(()=>{ const n=new Date(); return {y:n.getFullYear(),m:n.getMonth()}; });
   const today=new Date();
-  const maxDate=new Date(today.getTime()+92*86400000);
+  const maxDate=new Date(today.getFullYear()+1,2,31); // 翌年3月末まで表示
   const daysInMonth=new Date(ym.y,ym.m+1,0).getDate();
   const firstDay=new Date(ym.y,ym.m,1).getDay();
   const canPrev=new Date(ym.y,ym.m-1,1)>=new Date(today.getFullYear(),today.getMonth(),1);
@@ -226,17 +226,25 @@ function CalendarView({ spots, registrations, currentUser, onRegister, onCancel,
               const isToday=cellDate.toDateString()===today.toDateString();
               const isDisabled=cellDate<new Date(today.getFullYear(),today.getMonth(),today.getDate())||cellDate>maxDate;
               const dow=cellDate.getDay();
-              const isHoliday=specialDays.some(d=>d.date===dateStr&&d.type==="holiday");
+              const spotSchool = selectedSpot?.school;
+              const SCHOOL_COLORS_CAL = {"中":"#0284c7","小":"#059669","南小":"#7c3aed","芦口小":"#d97706","all":"#f59e0b"};
+              const SCHOOL_LABELS_CAL = {"中":"八木山中","小":"八木山小","南小":"南小","芦口小":"芦口小","all":"全校"};
+              const dayHolidays = specialDays.filter(d=>d.date===dateStr&&d.type==="holiday");
+              const isSpotHolidayDay = dayHolidays.some(d=>d.school==="all"||d.school===spotSchool);
               const isEnhanced=specialDays.some(d=>d.date===dateStr&&d.type==="enhanced");
-              const dayRegs=isHoliday?[]:registrations.filter(r=>r.spotId===selectedSpot?.id&&r.date===dateStr);
+              const dayRegs=isSpotHolidayDay?[]:registrations.filter(r=>r.spotId===selectedSpot?.id&&r.date===dateStr);
               const myReg=dayRegs.find(r=>r.userId===currentUser.id);
               return (
-                <div key={day} style={{ background:isHoliday?"#f1f5f9":isEnhanced?"#fef9c3":"white",minHeight:54,padding:"3px 3px",opacity:isDisabled?0.4:1 }}>
+                <div key={day} style={{ background:isSpotHolidayDay?"#f1f5f9":isEnhanced?"#fef9c3":"white",minHeight:54,padding:"3px 3px",opacity:isDisabled?0.4:1 }}>
                   <div style={{ width:21,height:21,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:isToday?"#0284c7":"transparent",color:isToday?"white":dow===0?"#dc2626":dow===6?"#2563eb":"#334155",fontWeight:isToday?700:500,fontSize:11,marginBottom:2 }}>{day}</div>
-                  {isHoliday&&<div style={{ fontSize:9,textAlign:"center",color:"#94a3b8",fontWeight:700 }}>🏫休校</div>}
-                  {isEnhanced&&!isHoliday&&<div style={{ fontSize:9,textAlign:"center",color:"#92400e",fontWeight:700 }}>⭐強化</div>}
-                  {!isHoliday&&dayRegs.map(r=><div key={r.id} style={{ fontSize:9,padding:"1px 3px",borderRadius:3,background:r.userId===currentUser.id?"#dbeafe":"#dcfce7",color:r.userId===currentUser.id?"#1d4ed8":"#16a34a",fontWeight:600,marginBottom:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{r.nickname}</div>)}
-                  {!isDisabled&&!isHoliday&&currentUser.role==="member"&&(
+                  {dayHolidays.length>0&&dayHolidays.map((h,hi)=>{
+                    const hCol=SCHOOL_COLORS_CAL[h.school]||"#94a3b8";
+                    const hLabel=SCHOOL_LABELS_CAL[h.school]||h.school;
+                    return <div key={hi} style={{ fontSize:7,textAlign:"center",color:hCol,fontWeight:700,lineHeight:1.3 }}>🏫{hLabel}</div>;
+                  })}
+                  {isEnhanced&&!isSpotHolidayDay&&<div style={{ fontSize:9,textAlign:"center",color:"#92400e",fontWeight:700 }}>⭐強化</div>}
+                  {!isSpotHolidayDay&&dayRegs.map(r=><div key={r.id} style={{ fontSize:9,padding:"1px 3px",borderRadius:3,background:r.userId===currentUser.id?"#dbeafe":"#dcfce7",color:r.userId===currentUser.id?"#1d4ed8":"#16a34a",fontWeight:600,marginBottom:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{r.nickname}</div>)}
+                  {!isDisabled&&!isSpotHolidayDay&&currentUser.role==="member"&&(
                     myReg
                       ? <button onClick={()=>onCancel(myReg.id)} style={{ width:"100%",fontSize:8,padding:"1px",borderRadius:3,border:"1px solid #fecaca",background:"white",color:"#dc2626",cursor:"pointer",fontFamily:"inherit" }}>取消</button>
                       : <button onClick={()=>onRegister(selectedSpot,dateStr)} style={{ width:"100%",fontSize:8,padding:"1px",borderRadius:3,border:"none",background:"#e0f2fe",color:"#0284c7",cursor:"pointer",fontFamily:"inherit" }}>参加</button>
