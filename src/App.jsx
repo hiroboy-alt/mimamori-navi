@@ -453,12 +453,17 @@ export default function MimamoriApp() {
     if (registrations.find(r => r.spotId === spot.id && r.userId === currentUser.id && r.date === d)) {
       alert("すでに登録済みです"); return;
     }
-    await addDoc(collection(db, "registrations"), {
-      spotId: spot.id, userId: currentUser.id,
-      nickname: currentUser.nickname, date: d,
-      createdAt: new Date().toISOString(),
-    });
-    if (!date) alert(`✅ ${spot.name}\n${formatDateJP(d)}\n見守りに登録しました！`);
+    try {
+      await addDoc(collection(db, "registrations"), {
+        spotId: spot.id, userId: currentUser.id,
+        nickname: currentUser.nickname, date: d,
+        createdAt: new Date().toISOString(),
+      });
+      if (!date) alert(`✅ ${spot.name}\n${formatDateJP(d)}\n見守りに登録しました！`);
+    } catch (e) {
+      console.error("登録エラー:", e);
+      alert("登録に失敗しました: " + e.message);
+    }
   };
 
   const handleCancel = async (regId) => {
