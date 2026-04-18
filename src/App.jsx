@@ -186,6 +186,15 @@ function MapView({ spots, registrations, selectedDate, currentUser, onRegister, 
   );
 }
 
+const NATIONAL_HOLIDAYS = {
+  "2026-01-01":"元日","2026-01-12":"成人の日","2026-02-11":"建国記念の日","2026-02-23":"天皇誕生日",
+  "2026-03-20":"春分の日","2026-04-29":"昭和の日","2026-05-03":"憲法記念日","2026-05-04":"みどりの日",
+  "2026-05-05":"こどもの日","2026-05-06":"振替休日","2026-07-20":"海の日","2026-08-11":"山の日",
+  "2026-09-21":"敬老の日","2026-09-22":"国民の休日","2026-09-23":"秋分の日","2026-10-12":"スポーツの日",
+  "2026-11-03":"文化の日","2026-11-23":"勤労感謝の日","2027-01-01":"元日","2027-01-11":"成人の日",
+  "2027-02-11":"建国記念の日","2027-02-23":"天皇誕生日","2027-03-21":"春分の日"
+};
+
 function CalendarView({ spots, registrations, currentUser, onRegister, onCancel, specialDays }) {
   const [selectedSpot, setSelectedSpot] = useState(spots[0]);
   const [ym, setYm] = useState(()=>{ const n=new Date(); return {y:n.getFullYear(),m:n.getMonth()}; });
@@ -229,14 +238,17 @@ function CalendarView({ spots, registrations, currentUser, onRegister, onCancel,
               const spotSchool = selectedSpot?.school;
               const SCHOOL_COLORS_CAL = {"中":"#0284c7","小":"#059669","南小":"#7c3aed","芦口小":"#d97706","all":"#f59e0b"};
               const SCHOOL_LABELS_CAL = {"中":"八木山中","小":"八木山小","南小":"南小","芦口小":"芦口小","all":"全校"};
+              const nationalHoliday = NATIONAL_HOLIDAYS[dateStr];
               const dayHolidays = specialDays.filter(d=>d.date===dateStr&&d.type==="holiday");
               const isSpotHolidayDay = dayHolidays.some(d=>d.school==="all"||d.school===spotSchool);
               const isEnhanced=specialDays.some(d=>d.date===dateStr&&d.type==="enhanced");
               const dayRegs=isSpotHolidayDay?[]:registrations.filter(r=>r.spotId===selectedSpot?.id&&r.date===dateStr);
               const myReg=dayRegs.find(r=>r.userId===currentUser.id);
+              const isRed = dow===0 || !!nationalHoliday;
               return (
-                <div key={day} style={{ background:isSpotHolidayDay?"#f1f5f9":isEnhanced?"#fef9c3":"white",minHeight:54,padding:"3px 3px",opacity:isDisabled?0.4:1 }}>
-                  <div style={{ width:21,height:21,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:isToday?"#0284c7":"transparent",color:isToday?"white":dow===0?"#dc2626":dow===6?"#2563eb":"#334155",fontWeight:isToday?700:500,fontSize:11,marginBottom:2 }}>{day}</div>
+                <div key={day} style={{ background:isSpotHolidayDay?"#f1f5f9":isEnhanced?"#fef9c3":nationalHoliday?"#fef2f2":"white",minHeight:54,padding:"3px 3px",opacity:isDisabled?0.4:1 }}>
+                  <div style={{ width:21,height:21,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:isToday?"#0284c7":"transparent",color:isToday?"white":isRed?"#dc2626":dow===6?"#2563eb":"#334155",fontWeight:isToday?700:500,fontSize:11,marginBottom:2 }}>{day}</div>
+                  {nationalHoliday&&<div style={{ fontSize:7,textAlign:"center",color:"#dc2626",fontWeight:700,lineHeight:1.3 }}>🎌{nationalHoliday}</div>}
                   {dayHolidays.length>0&&dayHolidays.map((h,hi)=>{
                     const hCol=SCHOOL_COLORS_CAL[h.school]||"#94a3b8";
                     const hLabel=SCHOOL_LABELS_CAL[h.school]||h.school;
