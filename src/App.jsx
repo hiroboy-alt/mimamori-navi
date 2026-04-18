@@ -72,8 +72,9 @@ function getDatesInRange(from, to) {
   const dates = [];
   const cur = new Date(from + "T00:00:00");
   const end = new Date(to + "T00:00:00");
+  const pad = n => String(n).padStart(2, "0");
   while (cur <= end) {
-    dates.push(cur.toISOString().split("T")[0]);
+    dates.push(`${cur.getFullYear()}-${pad(cur.getMonth()+1)}-${pad(cur.getDate())}`);
     cur.setDate(cur.getDate() + 1);
   }
   return dates;
@@ -82,14 +83,16 @@ function getDatesInRange(from, to) {
 function getDefaultDate() {
   const now = new Date();
   const target = now.getHours() >= 9 ? new Date(now.getTime()+86400000) : now;
-  return target.toISOString().split("T")[0];
+  const pad = n => String(n).padStart(2, "0");
+  return `${target.getFullYear()}-${pad(target.getMonth()+1)}-${pad(target.getDate())}`;
 }
 function formatDateJP(dateStr) {
   const d = new Date(dateStr+"T00:00:00");
   return `${d.getMonth()+1}月${d.getDate()}日（${"日月火水木金土"[d.getDay()]}）`;
 }
 function getDateRange() {
-  return Array.from({length:365},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+i); return d.toISOString().split("T")[0]; });
+  const pad = n => String(n).padStart(2, "0");
+  return Array.from({length:365},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+i); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; });
 }
 function createSpotIcon(hasReg) {
   const color = hasReg?"#2563eb":"#dc2626";
