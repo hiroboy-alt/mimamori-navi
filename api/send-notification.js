@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     }[type] || "【八木中ネット】";
 
     const subject = `${subjectPrefix} ${title}`;
-    const from = `${senderName || "八木中ネット"} <onboarding@resend.dev>`;
+    const from = `${senderName || "八木中ネット"} <noreply@yagiyama-net.com>`;
 
     const BATCH_SIZE = 50;
     const batches = [];
