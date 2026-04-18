@@ -161,8 +161,10 @@ function SpotModal({ spot, registrations, selectedDate, currentUser, onRegister,
 function MapView({ spots, registrations, selectedDate, currentUser, onRegister, onCancel, specialDays }) {
   const [activeSpot, setActiveSpot] = useState(null);
   const allHoliday = specialDays.some(d=>d.date===selectedDate&&d.type==="holiday"&&d.school==="all");
+  const isEnhancedDay = specialDays.some(d=>d.date===selectedDate&&d.type==="enhanced");
   return (
     <div style={{ flex:1,position:"relative",overflow:"hidden" }}>
+      {isEnhancedDay&&<div style={{ position:"absolute",top:10,left:"50%",transform:"translateX(-50%)",background:"linear-gradient(135deg,#f59e0b,#d97706)",borderRadius:12,padding:"8px 20px",zIndex:1000,textAlign:"center",boxShadow:"0 4px 16px rgba(245,158,11,0.4)" }}><span style={{ color:"white",fontWeight:800,fontSize:13 }}>⭐ 見守り強化週間実施中</span></div>}
       <MapContainer center={[38.23795,140.84650]} zoom={16} style={{ height:"100%",width:"100%" }} zoomControl={false}>
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
         {spots.map(spot=>{
@@ -336,7 +338,7 @@ function CalendarManageView({ specialDays, onAdd, onRemove }) {
           <label style={{ fontSize:11,fontWeight:700,color:"#475569",display:"block",marginBottom:4 }}>種別</label>
           <div style={{ display:"flex",gap:8 }}>
             <button onClick={()=>setSelType("holiday")} style={{ flex:1,padding:"9px",borderRadius:9,border:`2px solid ${selType==="holiday"?"#64748b":"#e5e7eb"}`,background:selType==="holiday"?"#f1f5f9":"white",color:selType==="holiday"?"#334155":"#94a3b8",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>🏫 休校日</button>
-            <button onClick={()=>setSelType("enhanced")} style={{ flex:1,padding:"9px",borderRadius:9,border:`2px solid ${selType==="enhanced"?"#92400e":"#e5e7eb"}`,background:selType==="enhanced"?"#fef9c3":"white",color:selType==="enhanced"?"#92400e":"#94a3b8",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>⭐ 強化デー</button>
+            <button onClick={()=>setSelType("enhanced")} style={{ flex:1,padding:"9px",borderRadius:9,border:`2px solid ${selType==="enhanced"?"#92400e":"#e5e7eb"}`,background:selType==="enhanced"?"#fef9c3":"white",color:selType==="enhanced"?"#92400e":"#94a3b8",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>⭐ 見守り強化週間</button>
           </div>
         </div>
 
@@ -357,20 +359,15 @@ function CalendarManageView({ specialDays, onAdd, onRemove }) {
 
         {/* 期間 */}
         <div style={{ marginBottom:10 }}>
-          <label style={{ fontSize:11,fontWeight:700,color:"#475569",display:"block",marginBottom:4 }}>開始日</label>
-          <select value={fromDate} onChange={e=>setFromDate(e.target.value)}
-            style={{ width:"100%",padding:"9px 12px",borderRadius:9,border:"2px solid #e5e7eb",fontSize:13,fontFamily:"inherit",color:"#334155" }}>
-            <option value="">-- 選択 --</option>
-            {dateRange.map(d=><option key={d} value={d}>{formatDateJP(d)}</option>)}
-          </select>
-        </div>
-        <div style={{ marginBottom:10 }}>
-          <label style={{ fontSize:11,fontWeight:700,color:"#475569",display:"block",marginBottom:4 }}>終了日（1日だけなら空欄でOK）</label>
-          <select value={toDate} onChange={e=>setToDate(e.target.value)}
-            style={{ width:"100%",padding:"9px 12px",borderRadius:9,border:"2px solid #e5e7eb",fontSize:13,fontFamily:"inherit",color:"#334155" }}>
-            <option value="">-- 開始日と同じ --</option>
-            {dateRange.filter(d=>d>=fromDate).map(d=><option key={d} value={d}>{formatDateJP(d)}</option>)}
-          </select>
+          <label style={{ fontSize:11,fontWeight:700,color:"#475569",display:"block",marginBottom:4 }}>期間</label>
+          <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+            <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)}
+              style={{ flex:1,padding:"9px 12px",borderRadius:9,border:"2px solid #e5e7eb",fontSize:13,fontFamily:"inherit",color:"#334155" }}/>
+            <span style={{ color:"#94a3b8",fontWeight:700,fontSize:13 }}>〜</span>
+            <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)}
+              style={{ flex:1,padding:"9px 12px",borderRadius:9,border:"2px solid #e5e7eb",fontSize:13,fontFamily:"inherit",color:"#334155" }}/>
+          </div>
+          <div style={{ fontSize:10,color:"#94a3b8",marginTop:4 }}>※ 1日だけの場合は開始日のみ入力</div>
         </div>
 
         {/* メモ */}
@@ -401,7 +398,7 @@ function CalendarManageView({ specialDays, onAdd, onRemove }) {
 
       {/* 強化デー一覧 */}
       <div style={{ background:"white",borderRadius:14,padding:"16px",boxShadow:"0 2px 10px rgba(0,0,0,0.07)" }}>
-        <h4 style={{ margin:"0 0 12px",fontSize:13,fontWeight:800,color:"#92400e" }}>⭐ 見守り強化デー（{enhanced.length}件）</h4>
+        <h4 style={{ margin:"0 0 12px",fontSize:13,fontWeight:800,color:"#92400e" }}>⭐ 見守り強化週間（{enhanced.length}日間）</h4>
         {enhanced.length===0
           ? <p style={{ margin:0,fontSize:12,color:"#94a3b8" }}>登録なし</p>
           : enhanced.map(d=>(
