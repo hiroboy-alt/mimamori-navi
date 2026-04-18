@@ -12,3 +12,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+
+// yagiyama-net（グループウェア）のFirestoreに副接続（休校日データ共有用）
+const sharedConfig = {
+  apiKey: "AIzaSyBUMYSL31nao-X60sgj1SaDT3uVdoklGo8",
+  authDomain: "yagiyama-net.firebaseapp.com",
+  projectId: "yagiyama-net",
+};
+const sharedApp = initializeApp(sharedConfig, "shared");
+export const sharedDb = getFirestore(sharedApp);

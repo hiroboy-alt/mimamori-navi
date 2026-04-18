@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { db } from "./firebase";
+import { db, sharedDb } from "./firebase";
 import { collection, onSnapshot, addDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -418,14 +418,35 @@ export default function MimamoriApp() {
     return () => unsub();
   }, []);
 
-  // Firestore: specialDaysをリアルタイム購読
+  // Firestore: specialDays（見守りナビ独自）をリアルタイム購読
+  const [localSpecialDays, setLocalSpecialDays] = useState([]);
   useEffect(() => {
     const q = query(collection(db, "specialDays"), orderBy("date"));
     const unsub = onSnapshot(q, snap => {
-      setSpecialDays(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLocalSpecialDays(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, []);
+
+  // グループウェア（yagiyama-net）の休校日をリアルタイム購読
+  const [sharedHolidays, setSharedHolidays] = useState([]);
+  const SCHOOL_MAP = {"八木山中":"中","八木山小":"小","八木山南小":"南小","芦口小":"芦口小","all":"all"};
+  useEffect(() => {
+    const unsub = onSnapshot(collection(sharedDb, "schoolHolidays"), snap => {
+      setSharedHolidays(snap.docs.map(d => {
+        const data = d.data();
+        return { id: `shared_${d.id}`, date: data.date, type: "holiday", school: SCHOOL_MAP[data.school] || data.school, label: data.label || "", shared: true };
+      }));
+    });
+    return () => unsub();
+  }, []);
+
+  // 統合: 見守りナビ独自 + グループウェア共有休校日（重複排除）
+  useEffect(() => {
+    const existingKeys = new Set(localSpecialDays.filter(d => d.type === "holiday").map(d => `${d.date}|${d.school}`));
+    const merged = [...localSpecialDays, ...sharedHolidays.filter(h => !existingKeys.has(`${h.date}|${h.school}`))];
+    setSpecialDays(merged);
+  }, [localSpecialDays, sharedHolidays]);
 
   // メール通知送信（共通API）
   const sendEmailNotification = async ({ type, title, body, emails, senderName }) => {
