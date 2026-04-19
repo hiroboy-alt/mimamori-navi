@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { db, sharedDb } from "./firebase";
-import { collection, onSnapshot, addDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import { db, sharedDb, sharedAuth } from "./firebase";
+import { collection, onSnapshot, addDoc, deleteDoc, doc, getDoc, getDocs, query, orderBy } from "firebase/firestore";
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -45,10 +46,17 @@ const INITIAL_SPOTS = [
   { id:"s29", school:"中",  name:"金剛沢３丁目交差点",              lat:38.232925716100844, lng:140.84201831408487, imageUrl:"https://drive.google.com/thumbnail?id=1g4SwPPPyJv9ELndHogbluNnmhzhkUxDI&sz=w400",  calendarUrl:"https://calendar.app.google/t4Fyas6idNLhpPCK6" },
 ];
 
-const USERS = [
-  { id:"u1", role:"admin",  name:"管理者",    nickname:"管理者", email:"hiro.hboy@gmail.com" },
-  { id:"u2", role:"member", name:"ユーザー",  nickname:"ユーザー", email:"" },
-];
+// 管理者ロール（PTA本部役員 + 先生）
+const ADMIN_ROLES = ["会長","副会長","監事","幹事","会計","事務長","校長","教頭","教務主任"];
+const isAdminRole = (role) => ADMIN_ROLES.includes(role);
+
+// ユーザーメール取得ヘルパー
+const fetchAllUserEmails = async () => {
+  try {
+    const snap = await getDocs(collection(sharedDb, "users"));
+    return snap.docs.map(d => d.data().email).filter(Boolean);
+  } catch (e) { console.error("ユーザーメール取得エラー:", e); return []; }
+};
 
 // 学校コード定義
 const SCHOOLS = [
@@ -421,11 +429,57 @@ function CalendarManageView({ specialDays, onAdd, onRemove }) {
 
 export default function MimamoriApp() {
   const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPw, setLoginPw] = useState("");
+  const [loginErr, setLoginErr] = useState("");
   const [view, setView] = useState("map");
   const [selectedDate, setSelectedDate] = useState(getDefaultDate);
   const [spots] = useState(INITIAL_SPOTS);
   const [specialDays, setSpecialDays] = useState([]);
   const [registrations, setRegistrations] = useState([]);
+
+  // Firebase Auth: yagiyama-net の認証を使用
+  useEffect(() => {
+    const unsub = onAuthStateChanged(sharedAuth, async (u) => {
+      if (u) {
+        const snap = await getDoc(doc(sharedDb, "users", u.uid));
+        if (snap.exists()) {
+          const profile = snap.data();
+          const role = profile.role || profile.ptaRole || "一般";
+          setCurrentUser({
+            id: u.uid,
+            name: profile.name,
+            nickname: (profile.name || "").split(" ")[0],
+            role: isAdminRole(role) ? "admin" : "member",
+            actualRole: role,
+            email: profile.email || u.email,
+          });
+        } else {
+          setCurrentUser(null);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+      setAuthLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const handleLogin = async () => {
+    setLoginErr("");
+    if (!loginEmail || !loginPw) { setLoginErr("メールアドレスとパスワードを入力してください"); return; }
+    try {
+      await signInWithEmailAndPassword(sharedAuth, loginEmail, loginPw);
+    } catch (e) {
+      setLoginErr("ログインに失敗しました。メールアドレスとパスワードを確認してください。");
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(sharedAuth);
+    setCurrentUser(null);
+  };
   const [loading, setLoading] = useState(true);
 
   // Firestore: registrationsをリアルタイム購読
@@ -520,17 +574,49 @@ export default function MimamoriApp() {
     // メール通知（全ユーザー）
     const typeLabel = type === "holiday" ? "休校日" : "見守り強化デー";
     const schoolLabel = SCHOOLS.find(s => s.code === (school || "all"))?.label || "";
-    const allEmails = USERS.map(u => u.email).filter(Boolean);
-    if (allEmails.length > 0) {
-      sendEmailNotification({ type: "mimamori", title: `${typeLabel}の設定：${date}`, body: `${schoolLabel}の${date}が「${typeLabel}」に設定されました。${label ? `\n備考: ${label}` : ""}\n\n見守りナビで確認してください。`, emails: allEmails, senderName: "見守りナビ" });
-    }
+    fetchAllUserEmails().then(allEmails => {
+      if (allEmails.length > 0) {
+        sendEmailNotification({ type: "mimamori", title: `${typeLabel}の設定：${date}`, body: `${schoolLabel}の${date}が「${typeLabel}」に設定されました。${label ? `\n備考: ${label}` : ""}\n\n見守りナビで確認してください。`, emails: allEmails, senderName: "見守りナビ" });
+      }
+    });
   };
 
   const handleRemoveSpecialDay = async (id) => {
     await deleteDoc(doc(db, "specialDays", id));
   };
 
-  if (!currentUser) return <LoginScreen onLogin={setCurrentUser}/>;
+  if (authLoading) return (
+    <div style={{ height:"100svh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,background:"#0c1a2e" }}>
+      <div style={{ fontSize:36 }}>👁️</div>
+      <div style={{ color:"white",fontWeight:700,fontSize:14 }}>読み込み中...</div>
+    </div>
+  );
+
+  if (!currentUser) return (
+    <div style={{ minHeight:"100svh",background:"linear-gradient(160deg,#0c1a2e 0%,#1a3a5c 60%,#0f4c75 100%)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Hiragino Kaku Gothic ProN, YuGothic, sans-serif",padding:20 }}>
+      <div style={{ width:"100%",maxWidth:400 }}>
+        <div style={{ textAlign:"center",marginBottom:24 }}>
+          <div style={{ fontSize:58,display:"inline-block",filter:"drop-shadow(0 8px 24px rgba(56,189,248,0.5))" }}>👁️</div>
+          <h1 style={{ margin:"10px 0 4px",fontSize:22,fontWeight:900,color:"white",letterSpacing:2 }}>見守りナビ</h1>
+          <p style={{ margin:0,fontSize:12,color:"rgba(255,255,255,0.5)" }}>八木山中学校 登校見守り活動</p>
+        </div>
+        <div style={{ background:"rgba(255,255,255,0.07)",backdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:20,padding:"24px 20px" }}>
+          <p style={{ margin:"0 0 16px",fontSize:14,fontWeight:700,color:"white",textAlign:"center" }}>八木中ネットアカウントでログイン</p>
+          {loginErr && <div style={{ background:"rgba(220,38,38,0.2)",color:"#fca5a5",padding:"8px 12px",borderRadius:8,fontSize:12,marginBottom:12 }}>{loginErr}</div>}
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontSize:11,fontWeight:600,color:"rgba(255,255,255,0.5)",marginBottom:4 }}>メールアドレス</div>
+            <input value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} type="email" placeholder="example@mail.com" style={{ width:"100%",padding:"12px",borderRadius:10,border:"1px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none",boxSizing:"border-box" }} />
+          </div>
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11,fontWeight:600,color:"rgba(255,255,255,0.5)",marginBottom:4 }}>パスワード</div>
+            <input value={loginPw} onChange={e=>setLoginPw(e.target.value)} type="password" placeholder="8文字以上" onKeyDown={e=>e.key==="Enter"&&handleLogin()} style={{ width:"100%",padding:"12px",borderRadius:10,border:"1px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none",boxSizing:"border-box" }} />
+          </div>
+          <button onClick={handleLogin} style={{ width:"100%",padding:"14px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#0284c7,#0369a1)",color:"white",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:"0 4px 16px rgba(2,132,199,0.4)" }}>ログイン</button>
+        </div>
+        <p style={{ marginTop:16,fontSize:11,color:"rgba(255,255,255,0.4)",textAlign:"center" }}>八木中ネットで登録したアカウントでログインできます</p>
+      </div>
+    </div>
+  );
   if (loading) return (
     <div style={{ height:"100svh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,background:"#0c1a2e" }}>
       <div style={{ fontSize:36 }}>👁️</div>
@@ -553,7 +639,7 @@ export default function MimamoriApp() {
           <span style={{ fontWeight:900,fontSize:14,color:"white",letterSpacing:1,flex:1 }}>見守りナビ</span>
           <span style={{ fontSize:10,color:"rgba(255,255,255,0.6)",background:"rgba(255,255,255,0.1)",padding:"3px 8px",borderRadius:7 }}>{currentUser.role==="admin"?"👑":"👤"} {currentUser.nickname}</span>
           <button onClick={()=>window.location.href="https://yagiyama-net.vercel.app"} style={{ padding:"5px 10px",borderRadius:7,border:"none",background:"linear-gradient(135deg,#0284c7,#0369a1)",color:"white",cursor:"pointer",fontSize:10,fontWeight:800,letterSpacing:1 }}>🏠 八木中ネット</button>
-          <button onClick={()=>setCurrentUser(null)} style={{ padding:"5px 10px",borderRadius:7,border:"none",background:"linear-gradient(135deg,#1e1b4b,#312e81)",color:"white",cursor:"pointer",fontSize:10,fontWeight:800,letterSpacing:1 }}>↩ ログアウト</button>
+          <button onClick={handleLogout} style={{ padding:"5px 10px",borderRadius:7,border:"none",background:"linear-gradient(135deg,#1e1b4b,#312e81)",color:"white",cursor:"pointer",fontSize:10,fontWeight:800,letterSpacing:1 }}>↩ ログアウト</button>
         </div>
         <div style={{ display:"flex",gap:1,padding:"4px 8px 0" }}>
           {tabs.map(t=>(
